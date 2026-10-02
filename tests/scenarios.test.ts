@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { seedState } from "../lib/data";
+import { seedState, unifyCustomer } from "../lib/data";
 import {
   addToCart,
   checkoutItems,
@@ -45,4 +45,23 @@ test("compatibility year filters use inclusive supported ranges", () => {
   assert.equal(compatibleYear("Toyota Corolla · 2014–2021", 2014), true);
   assert.equal(compatibleYear("Toyota Corolla · 2014–2021", 2021), true);
   assert.equal(compatibleYear("Toyota Corolla · 2014–2021", 2024), false);
+});
+
+test("one customer owns purchases and all listing scenarios without self-chat", () => {
+  const state = seedState();
+  assert.ok(state.orders.some(o => o.userId === state.userId));
+  const statuses = state.vehicles.filter(v => v.sellerId === state.userId).map(v => v.status);
+  for (const status of ["Live", "Draft", "Pending Review", "Changes Required", "Paused", "Sold", "Rejected"]) assert.ok(statuses.includes(status), status);
+  const thread = state.messages[0];
+  assert.notEqual(thread.userId, state.userId);
+  assert.equal(thread.messages[1].senderId, state.userId);
+  const snapshot = structuredClone(state);
+  assert.deepEqual(unifyCustomer(state), snapshot);
+  state.userId = "seller";
+  state.vehicles[0].sellerId = "seller";
+  state.vehicles[0].status = "Sold";
+  unifyCustomer(state);
+  assert.equal(state.userId, "buyer");
+  assert.equal(state.vehicles[0].sellerId, "buyer");
+  assert.equal(state.vehicles[0].status, "Sold");
 });
